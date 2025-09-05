@@ -1,6 +1,8 @@
 samples/
 .venv/
 __pycache__/
+tmp/
+input/
 
 client_secrets.json
 token.json

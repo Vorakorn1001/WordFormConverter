@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from typing import List
 from google import genai
 from services.types.Question import Question
+import openai 
 
 class GenJsonService:
     def __init__(self):
@@ -70,15 +71,30 @@ class GenJsonService:
             ("system", self.prompt1),
             ("human", f"All Text: {allText}\n\nColor Text: {colorText}")
         ]
+        # Save the request to llm_req.txt file
+        with open('tmp/llm_req.txt', 'w', encoding='utf-8') as f:
+            f.write(f"System: {self.prompt1}\n\n")
+            f.write(f"Human: All Text: {allText}\n\nColor Text: {colorText}")
+        
         response = self.geminiLlm.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-pro',
             contents=messages,
             config={
                 'response_mime_type': 'application/json',
                 'response_schema': list[Question]
             }
         )
-        finalOutput = self.reformat(response.text)
+        
+        # Save the response to tmp/llm_result.json
+        with open('tmp/llm_result.json', 'w', encoding='utf-8') as f:
+            response_data = json.loads(response.text)
+            json.dump(response_data, f, ensure_ascii=False, indent=2)
+
+        input("Press Enter after saving the response to tmp/llm_result.json file...")
+        
+        with open('tmp/llm_result.json', 'r', encoding='utf-8') as f:
+            response = f.read()
+        finalOutput = self.reformat(response)
         finalOutput = json.loads(finalOutput)
         for q in finalOutput:
             q['answer'] = self.getMostSimilarChoice(q['choices'], q['answer'])
@@ -89,15 +105,20 @@ class GenJsonService:
         return finalOutput
 
     def run(self, inputDir='./input', outputDir='./tmp', outputFile='output.json'):
+        print("Step 1: Listing files in directory:", inputDir)
         files = self.listFiles(inputDir)
         if not files:
             print("No files found.")
             return
         firstFile = os.path.join(inputDir, files[0])
+        print("Step 2: Processing file:", firstFile)
         data = self.processFile(firstFile)
+        print("Step 3: Removing newlines from data")
         data = self.removeNewlines(data)
         if not os.path.exists(outputDir):
+            print("Step Err: Creating output directory:", outputDir)
             os.makedirs(outputDir)
         outputFile = os.path.join(outputDir, outputFile)
+        print("Step 4: Writing output to file:", outputFile)
         with open(outputFile, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
